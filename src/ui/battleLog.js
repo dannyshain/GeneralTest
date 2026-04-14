@@ -16,6 +16,7 @@ export function renderBattleLogs(state, containerEl) {
     const section = document.createElement('div');
     section.className = 'battle-section';
 
+    // ── Header ─────────────────────────────────────────────────
     const header = document.createElement('div');
     header.className = 'battle-header';
     header.innerHTML =
@@ -23,20 +24,49 @@ export function renderBattleLogs(state, containerEl) {
       + ` ⚔ `
       + `<span style="color:${defender?.color ?? '#aaa'}">${defender?.name ?? '?'}</span>`
       + `  <span class="battle-result ${battle.result}">${labelResult(battle.result)}</span>`
-      + `  <span class="muted">(${battle.rounds} rounds)</span>`;
+      + `  <span class="muted">${battle.rounds} rounds</span>`;
     section.appendChild(header);
 
+    // ── Opening troop counts ────────────────────────────────────
+    const troops = document.createElement('div');
+    troops.className = 'battle-troops';
+    troops.innerHTML =
+      `<span style="color:${attacker?.color ?? '#aaa'}">${attacker?.name ?? '?'}</span>`
+      + ` started with <strong>${battle.attackerStartSoldiers ?? '?'}</strong> soldiers`
+      + ` vs `
+      + `<span style="color:${defender?.color ?? '#aaa'}">${defender?.name ?? '?'}</span>`
+      + ` with <strong>${battle.defenderStartSoldiers ?? '?'}</strong> soldiers.`;
+    section.appendChild(troops);
+
+    // ── Losses summary ──────────────────────────────────────────
     const losses = document.createElement('div');
     losses.className = 'battle-losses';
-    losses.textContent =
-      `Losses — ${attacker?.name ?? '?'}: ${battle.attackerLosses} | `
-      + `${defender?.name ?? '?'}: ${battle.defenderLosses}`;
+    losses.innerHTML =
+      `Losses — `
+      + `<span style="color:${attacker?.color ?? '#aaa'}">${attacker?.name ?? '?'}</span>: `
+      + `<strong>${battle.attackerLosses}</strong>`
+      + ` &nbsp;|&nbsp; `
+      + `<span style="color:${defender?.color ?? '#aaa'}">${defender?.name ?? '?'}</span>: `
+      + `<strong>${battle.defenderLosses}</strong>`
+      + ` &nbsp;|&nbsp; Survivors: ${battle.attackerSurvivors} / ${battle.defenderSurvivors}`;
     section.appendChild(losses);
 
-    // Collapsible log
+    // ── Territory captured ──────────────────────────────────────
+    if (battle.result === 'attackerVictory' && battle.territoryCaptured > 0) {
+      const terr = document.createElement('div');
+      terr.className = 'battle-territory';
+      terr.innerHTML =
+        `<span style="color:${attacker?.color ?? '#aaa'}">${attacker?.name ?? '?'}</span>`
+        + ` captured <strong>${battle.territoryCaptured}</strong> territory from `
+        + `<span style="color:${defender?.color ?? '#aaa'}">${defender?.name ?? '?'}</span>.`
+        + (defender?.isEliminated ? ` <strong>${defender?.name} has been eliminated!</strong>` : '');
+      section.appendChild(terr);
+    }
+
+    // ── Collapsible round-by-round log ──────────────────────────
     const toggle = document.createElement('button');
     toggle.className = 'log-toggle';
-    toggle.textContent = '▶ Show battle log';
+    toggle.textContent = '▶ Battle log';
     section.appendChild(toggle);
 
     const logDiv = document.createElement('div');
@@ -44,13 +74,15 @@ export function renderBattleLogs(state, containerEl) {
     for (const line of battle.log) {
       const p = document.createElement('p');
       p.textContent = line;
+      // Highlight casualty lines slightly
+      if (line.startsWith('Round') && line.includes('−')) p.className = 'round-line';
       logDiv.appendChild(p);
     }
     section.appendChild(logDiv);
 
     toggle.addEventListener('click', () => {
       const hidden = logDiv.classList.toggle('hidden');
-      toggle.textContent = hidden ? '▶ Show battle log' : '▼ Hide battle log';
+      toggle.textContent = hidden ? '▶ Battle log' : '▼ Battle log';
     });
 
     containerEl.appendChild(section);
@@ -66,15 +98,9 @@ export function renderEventLog(state, containerEl) {
   for (const line of state.eventLog) {
     const p = document.createElement('p');
     p.textContent = line;
-    if (line.includes('eliminated')) p.className = 'event-important';
+    if (line.includes('eliminated') || line.includes('starved')) p.className = 'event-important';
     containerEl.appendChild(p);
   }
-}
-
-function labelResult(result) {
-  if (result === 'attackerVictory') return '✓ Attacker wins';
-  if (result === 'defenderVictory') return '✗ Defender holds';
-  return '— Stalemate';
 }
 
 export function renderPostgame(state, containerEl) {
@@ -90,7 +116,8 @@ export function renderPostgame(state, containerEl) {
   if (state.finalScores) {
     const table = document.createElement('table');
     table.className = 'score-table';
-    table.innerHTML = '<tr><th>Country</th><th>Score</th><th>Territory</th><th>Population</th><th>Eliminations</th></tr>';
+    table.innerHTML =
+      '<tr><th>Country</th><th>Score</th><th>Territory</th><th>Population</th><th>Elims</th></tr>';
 
     const sorted = Object.entries(state.finalScores).sort((a, b) => b[1] - a[1]);
     for (const [id, score] of sorted) {
@@ -108,23 +135,32 @@ export function renderPostgame(state, containerEl) {
     containerEl.appendChild(table);
   }
 
-  // Basic year-by-year summary for the human player
+  // Year-by-year history for human player
   const human = Object.values(state.countries).find(c => c.isHuman);
   if (human && state.yearlyHistory.length > 0) {
     const h2 = document.createElement('h3');
     h2.textContent = `Your history — ${human.name}`;
+    h2.style.marginTop = '16px';
     containerEl.appendChild(h2);
 
     const chart = document.createElement('div');
     chart.className = 'history-chart';
-    chart.innerHTML = '<p class="muted">Turn | Pop | Territory | Soldiers</p>';
+    chart.innerHTML = '<p class="muted" style="font-size:10px">Year | Population | Territory | Soldiers | Money</p>';
     for (const snap of state.yearlyHistory) {
       const s = snap.countries[human.id];
       if (!s) continue;
       const row = document.createElement('p');
-      row.textContent = `Year ${snap.turn}: pop ${s.population} | terr ${Math.round(s.territory)} | soldiers ${s.soldiers}`;
+      row.textContent =
+        `Year ${snap.turn}: pop ${s.population} | terr ${Math.round(s.territory)}`
+        + ` | sol ${s.soldiers} | money ${Math.floor(s.money)}`;
       chart.appendChild(row);
     }
     containerEl.appendChild(chart);
   }
+}
+
+function labelResult(result) {
+  if (result === 'attackerVictory') return '✓ Attacker wins';
+  if (result === 'defenderVictory') return '✗ Defender holds';
+  return '— Stalemate';
 }

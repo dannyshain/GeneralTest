@@ -51,6 +51,8 @@ export function createCountry(id, name, color, x, y, territory, isHuman, persona
 
     // Economy
     money: CONFIG.STARTING_MONEY,
+    grain: CONFIG.STARTING_GRAIN,   // stored grain (carries over between turns)
+    harvestedThisTurn: false,       // true once farmers have harvested this turn
 
     // Science levels (each starts at 1)
     science: {
@@ -88,13 +90,10 @@ export function createCountry(id, name, color, x, y, territory, isHuman, persona
     personality,
 
     // Orders submitted this turn (set by player or AI before resolution)
+    // Note: training and general recruitment are now immediate UI actions, not orders.
     orders: {
-      farmers: null,       // target farmer count
-      scientists: null,    // target scientist count
-      soldiers: null,      // target soldier count
       scienceAllocation: null,   // { area: numScientists }
       generalOrders: [],         // [{ generalId, action, targetCountryId, soldiers }]
-      recruitGeneral: null,      // { age, skill, speed } or null
     },
   };
 }

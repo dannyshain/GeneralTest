@@ -2,28 +2,33 @@
 import { CONFIG } from './config.js';
 import { angleTo } from './mapGen.js';
 
-// Territory gained by the victor based on surviving strength and general speed.
-export function calcLandCaptured(survivingSoldiers, speed) {
-  const base = (survivingSoldiers / 100) * CONFIG.LAND_PER_100_SOLDIERS;
-  const speedMult = 1 + CONFIG.LAND_SPEED_FACTOR * speed;
-  return Math.floor(base * speedMult);
+// ── Land capture formula ───────────────────────────────────────────
+// Uses logarithmic scaling for diminishing returns.
+// 100 survivors at speed 50 → ~10 territory (≈10% of starting 100).
+// 500 survivors at speed 50 → ~20 territory (not 50).
+// Formula: floor(SCALE * ln(1 + survivors / DIVISOR) * speedMult)
+// Capped at LAND_CAPTURE_MAX_FRACTION of the defender's current territory.
+
+export function calcLandCaptured(survivingSoldiers, speed, defenderTerritory) {
+  if (survivingSoldiers <= 0) return 0;
+  const logTerm    = Math.log(1 + survivingSoldiers / CONFIG.LAND_CAPTURE_DIVISOR);
+  const speedMult  = 1 + CONFIG.LAND_SPEED_FACTOR * speed;
+  const raw        = Math.floor(CONFIG.LAND_CAPTURE_SCALE * logTerm * speedMult);
+  const cap        = Math.floor(defenderTerritory * CONFIG.LAND_CAPTURE_MAX_FRACTION);
+  return Math.min(raw, cap);
 }
 
 /**
  * Transfer territory after an attacker victory and update border weights.
  *
- * Mechanics:
+ * Mechanics (unchanged from v1 — angular proximity border redistribution):
  *  1. Move `capturedAmount` territory from defender to attacker.
- *  2. For each of the defender's OTHER neighbours, reduce border[def][C] by an
- *     amount proportional to (fractionLost × angularProximity).
+ *  2. For each of the defender's OTHER neighbours, reduce border[def][C] by
+ *     fractionLost × angularProximity (cos of angle diff).
  *  3. Transfer BORDER_TRANSFER_RATE of that shrinkage to border[att][C].
- *  4. If border[def][C] drops below BORDER_THRESHOLD → adjacency lost.
- *  5. If border[att][C] rises above BORDER_THRESHOLD → new adjacency gained.
- *  6. If defender.territory reaches 0 → eliminated; attacker inherits all borders.
- *
- * Angular proximity: cos(Δangle), where Δangle is the angular difference between
- *   (defender→attacker) and (defender→C). 0° apart = full effect; 90°+ = zero.
- *   This means only borders in the direction of the attack are affected.
+ *  4. border[def][C] < BORDER_THRESHOLD → adjacency lost.
+ *  5. border[att][C] rises above 0 → potential new adjacency.
+ *  6. defender.territory reaches 0 → eliminated; attacker inherits all borders.
  *
  * @returns {{ actual: number, events: Event[] }}
  */
@@ -45,7 +50,6 @@ export function applyLandCapture(state, attackerCountryId, defenderCountryId, ca
     def.isEliminated = true;
     events.push({ type: 'elimination', eliminated: defenderCountryId, by: attackerCountryId });
 
-    // Attacker inherits all of defender's former borders
     for (const [neighborId, borderData] of Object.entries(def.borders)) {
       if (neighborId === attackerCountryId) continue;
       const neighbor = state.countries[neighborId];
@@ -71,48 +75,35 @@ export function applyLandCapture(state, attackerCountryId, defenderCountryId, ca
 
   // ── Partial capture ────────────────────────────────────────────
   const fractionLost = actual / preCaptureTerritory;
-
-  // Direction of attacker relative to defender
   const attAngleFromDef = def.borders[attackerCountryId]?.angle ?? 0;
 
-  // Process each of defender's OTHER neighbours
   for (const [neighborId, borderData] of Object.entries(def.borders)) {
     if (neighborId === attackerCountryId) continue;
     const neighbor = state.countries[neighborId];
     if (!neighbor || neighbor.isEliminated) continue;
 
-    // Angular proximity: how close is this neighbour's direction to the attacker's direction?
-    const neighborAngle = borderData.angle;
-    let angDiff = Math.abs(attAngleFromDef - neighborAngle);
-    if (angDiff > 180) angDiff = 360 - angDiff; // normalise to 0–180
+    // Angular proximity: only borders in the direction of the attack are affected
+    let angDiff = Math.abs(attAngleFromDef - borderData.angle);
+    if (angDiff > 180) angDiff = 360 - angDiff;
     const proximityFactor = Math.max(0, Math.cos(angDiff * Math.PI / 180));
+    if (proximityFactor === 0) continue;
 
-    if (proximityFactor === 0) continue; // opposite side — not affected
-
-    // How much border defender loses with this neighbour
-    const borderLoss = borderData.weight * fractionLost * proximityFactor;
-
-    // How much transfers to attacker
+    const borderLoss  = borderData.weight * fractionLost * proximityFactor;
     const transferred = borderLoss * CONFIG.BORDER_TRANSFER_RATE;
 
-    // Update defender's border weight
     def.borders[neighborId].weight -= borderLoss;
 
     if (transferred > 0) {
       if (att.borders[neighborId]) {
-        // Already adjacent — just strengthen the border
         att.borders[neighborId].weight += transferred;
       } else {
-        // Potential new adjacency forming
         const angle = angleTo(att, neighbor);
         att.borders[neighborId] = { weight: transferred, angle };
         neighbor.borders[attackerCountryId] = { weight: transferred, angle: angleTo(neighbor, att) };
-        // Note: adjacency is tracked by border existence; we only fire the event if it's new
         events.push({ type: 'newAdjacency', a: attackerCountryId, b: neighborId });
       }
     }
 
-    // Check if defender lost adjacency with this neighbour
     if (def.borders[neighborId].weight < CONFIG.BORDER_THRESHOLD) {
       delete def.borders[neighborId];
       delete neighbor.borders[defenderCountryId];

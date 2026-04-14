@@ -163,6 +163,35 @@
 
     .muted { color: #666; }
     p.muted { padding: 4px 0; }
+
+    /* ── Economy overview ────────────────────────────────── */
+    .econ-overview { background: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 4px; padding: 6px 10px; }
+    .econ-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; }
+    .econ-row strong { color: #e8c97f; }
+
+    /* ── Harvest / sell / train rows ─────────────────────── */
+    .sell-row, .train-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .sell-row input, .train-row input {
+      background: #2a2a2a; color: #ddd; border: 1px solid #444;
+      padding: 4px 6px; font-family: monospace; font-size: 12px;
+      border-radius: 3px; width: 80px;
+    }
+
+    /* ── Immediate action buttons ─────────────────────────── */
+    .action-btn {
+      padding: 5px 12px; background: #2a3a4a; color: #9cf;
+      border: 1px solid #3a5a7a; border-radius: 3px;
+      font-family: monospace; font-size: 12px; cursor: pointer;
+    }
+    .action-btn:hover:not(:disabled) { background: #3a4a5a; }
+    .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .harvest-btn { background: #2a4a2a; color: #8fc; border-color: #3a7a3a; }
+    .harvest-btn:hover { background: #3a5a3a; }
+
+    /* ── Battle log additions ─────────────────────────────── */
+    .battle-troops { font-size: 11px; color: #bbb; margin-bottom: 3px; }
+    .battle-territory { font-size: 11px; color: #e8c97f; margin-bottom: 4px; font-weight: bold; }
+    .round-line { color: #aaa; }
   </style>
 </head>
 <body>

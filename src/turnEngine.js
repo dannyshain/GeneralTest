@@ -2,8 +2,15 @@
 // Master turn pipeline — 15 steps as specified in the design.
 
 import { getActiveCountries } from './gameState.js';
-import { applyPopulationGrowth, applyPopulationOrders } from './population.js';
-import { processEconomy } from './economy.js';
+import { applyPopulationGrowth } from './population.js';
+import {
+  harvestGrain,
+  processFoodUpkeep,
+  processUpkeep,
+  calcMilitaryUpkeep,
+  calcScienceUpkeep,
+  calcFoodUpkeep,
+} from './economy.js';
 import { applyScienceOrders, processResearch } from './science.js';
 import { recruitGeneral, processGeneralAction, ageGenerals } from './generals.js';
 import { resolveBattle } from './combat.js';
@@ -12,10 +19,6 @@ import { recordAttack, recordElimination, decayHostility } from './hostility.js'
 import { generateAIOrders } from './ai.js';
 import { snapshotYear, checkVictory } from './scoring.js';
 
-/**
- * Run one full game turn.
- * Mutates state in-place; returns state for convenience.
- */
 export function processTurn(state) {
   const log = [];
   state.battleLogs = [];
@@ -35,31 +38,47 @@ export function processTurn(state) {
     }
   }
 
-  // ── Step 3: Economic production ────────────────────────────────
+  // ── Step 3: Harvest grain ──────────────────────────────────────
+  // Auto-harvest for any country that hasn't manually harvested yet this turn
+  // (human player may have already harvested via the HUD button).
   for (const country of getActiveCountries(state)) {
-    const { grain, income } = processEconomy(country);
-    log.push(`${country.name}: ${grain} grain → +${income} money (treasury: ${country.money}).`);
-  }
-
-  // ── Step 4: Apply population allocation orders ─────────────────
-  for (const country of getActiveCountries(state)) {
-    applyPopulationOrders(country);
-  }
-
-  // ── Step 5: Recruit generals ───────────────────────────────────
-  for (const country of getActiveCountries(state)) {
-    const o = country.orders.recruitGeneral;
-    if (o) {
-      const gen = recruitGeneral(country, o.age, o.skill, o.speed);
-      if (gen) {
-        log.push(`${country.name} recruited General ${gen.name} (age ${gen.age}, skill ${gen.skill}, speed ${gen.speed}).`);
-      } else {
-        log.push(`${country.name} could not afford to recruit a general.`);
+    if (!country.harvestedThisTurn) {
+      const harvested = harvestGrain(country);
+      if (!country.isHuman) {
+        // AI auto-sells enough to cover upkeep; holds some buffer
+        const foodNeeded   = calcFoodUpkeep(country);
+        const upkeepNeeded = calcMilitaryUpkeep(country) + calcScienceUpkeep(country);
+        const needToSell   = Math.max(0, foodNeeded + upkeepNeeded - country.money);
+        const grainToSell  = Math.min(country.grain, Math.ceil(needToSell / 0.05) + 200);
+        if (grainToSell > 0) {
+          const price = 0.05 * (1 + (country.science.grainValue - 1) * 0.25);
+          country.money += grainToSell * price;
+          country.grain -= grainToSell;
+        }
       }
     }
   }
 
-  // ── Step 6: Research ───────────────────────────────────────────
+  // ── Step 4: Food upkeep + starvation ──────────────────────────
+  for (const country of getActiveCountries(state)) {
+    const { starved } = processFoodUpkeep(country);
+    if (starved > 0) {
+      log.push(`⚠ ${country.name}: ${starved} people starved due to food shortage!`);
+    }
+  }
+
+  // ── Step 5: Military and science upkeep ───────────────────────
+  for (const country of getActiveCountries(state)) {
+    const { soldierDesertions, scientistDesertions } = processUpkeep(country);
+    if (soldierDesertions > 0) {
+      log.push(`${country.name}: ${soldierDesertions} soldiers deserted (upkeep not met).`);
+    }
+    if (scientistDesertions > 0) {
+      log.push(`${country.name}: ${scientistDesertions} scientists quit (upkeep not met).`);
+    }
+  }
+
+  // ── Step 6: Apply science allocation and research ─────────────
   for (const country of getActiveCountries(state)) {
     applyScienceOrders(country);
     const levelUps = processResearch(country);
@@ -68,7 +87,7 @@ export function processTurn(state) {
     }
   }
 
-  // ── Step 7: Collect and sort attacks by speed ──────────────────
+  // ── Step 7: Collect and sort attacks by general speed ──────────
   const attacks = [];
 
   for (const country of getActiveCountries(state)) {
@@ -82,9 +101,8 @@ export function processTurn(state) {
       if (order.action !== 'attack') continue;
       if (!order.targetCountryId)    continue;
 
-      // Verify adjacency at order time
       if (!country.borders[order.targetCountryId]) {
-        log.push(`${country.name}: attack on ${state.countries[order.targetCountryId]?.name ?? order.targetCountryId} canceled — not adjacent.`);
+        log.push(`${country.name}: attack canceled — not adjacent to target.`);
         gen.action = 'defend';
         continue;
       }
@@ -99,18 +117,15 @@ export function processTurn(state) {
     }
   }
 
-  // Fastest generals attack first
   attacks.sort((a, b) => b.speed - a.speed);
 
-  // ── Step 8 + 9: Resolve battles and transfer territory ─────────
-  // Track which (attacker,defender) pairs are mutual attacks (open field)
+  // ── Steps 8 + 9: Resolve battles and transfer territory ────────
   const mutualPairs = new Set();
   for (const a of attacks) {
-    const reverse = attacks.find(
-      b => b.attackerCountryId === a.defenderCountryId
-        && b.defenderCountryId === a.attackerCountryId
-    );
-    if (reverse) {
+    if (attacks.some(b =>
+      b.attackerCountryId === a.defenderCountryId &&
+      b.defenderCountryId === a.attackerCountryId
+    )) {
       mutualPairs.add(`${a.attackerCountryId}→${a.defenderCountryId}`);
     }
   }
@@ -121,9 +136,8 @@ export function processTurn(state) {
 
     if (attacker.isEliminated || defender.isEliminated) continue;
 
-    // Re-check adjacency (earlier battles may have changed the map)
     if (!attacker.borders[attack.defenderCountryId]) {
-      log.push(`${attacker.name}'s attack on ${defender.name} canceled — no longer adjacent after earlier fighting.`);
+      log.push(`${attacker.name}'s attack on ${defender.name} canceled — no longer adjacent.`);
       continue;
     }
 
@@ -138,13 +152,12 @@ export function processTurn(state) {
       isOpenField,
     );
 
-    state.battleLogs.push(result);
     recordAttack(state, attack.attackerCountryId, attack.defenderCountryId);
 
     if (result.result === 'attackerVictory') {
-      const attGen = attacker.generals.find(g => g.id === attack.generalId);
-      const speed  = attGen?.speed ?? 1;
-      const captured = calcLandCaptured(result.attackerSurvivors, speed);
+      const attGen    = attacker.generals.find(g => g.id === attack.generalId);
+      const speed     = attGen?.speed ?? 1;
+      const captured  = calcLandCaptured(result.attackerSurvivors, speed, defender.territory);
 
       const { actual, events } = applyLandCapture(
         state,
@@ -153,6 +166,7 @@ export function processTurn(state) {
         captured,
       );
 
+      result.territoryCaptured = actual;
       log.push(`${attacker.name} captured ${actual} territory from ${defender.name}.`);
 
       for (const event of events) {
@@ -172,6 +186,8 @@ export function processTurn(state) {
         }
       }
     }
+
+    state.battleLogs.push(result);
   }
 
   // ── Step 10: Non-battle general actions ────────────────────────
@@ -195,15 +211,14 @@ export function processTurn(state) {
   // ── Step 13: Snapshot yearly stats ────────────────────────────
   snapshotYear(state);
 
-  // ── Step 14: Clear orders for next turn ───────────────────────
+  // ── Step 14: Reset for next turn ──────────────────────────────
   for (const country of getActiveCountries(state)) {
+    // Reset harvest flag so farmers can harvest again next turn
+    country.harvestedThisTurn = false;
+
     country.orders = {
-      farmers:           null,
-      scientists:        null,
-      soldiers:          null,
       scienceAllocation: null,
       generalOrders:     [],
-      recruitGeneral:    null,
     };
     for (const gen of country.generals) {
       gen.action          = null;
