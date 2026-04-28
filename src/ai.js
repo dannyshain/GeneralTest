@@ -1,7 +1,6 @@
 // src/ai.js
 import { CONFIG } from './config.js';
 import { getHostility } from './hostility.js';
-import { generalRecruitCost } from './economy.js';
 import { SCIENCE_AREAS } from './science.js';
 
 /**
@@ -50,16 +49,14 @@ export function generateAIOrders(state, countryId) {
   }
 
   // ── General recruitment ───────────────────────────────────────
+  // No money check here — orders are generated before harvest/auto-sell,
+  // so treasury is always low. The turnEngine checks affordability post-harvest.
   let recruitGeneral = null;
   if (country.generals.length === 0 && p.aggression > 0.25) {
-    // Pick affordable stats, skewing toward aggression level
     const age   = Math.floor(randBetween(28, 50));
     const skill = Math.floor(randBetween(8, 22));
     const speed = Math.floor(randBetween(25, 65));
-    const cost  = generalRecruitCost(age, skill, speed);
-    if (country.money >= cost) {
-      recruitGeneral = { age, skill, speed };
-    }
+    recruitGeneral = { age, skill, speed };
   }
 
   // ── General orders ────────────────────────────────────────────

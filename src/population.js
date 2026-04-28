@@ -41,28 +41,3 @@ export function validateAllocation(country) {
   }
 }
 
-// Apply the population reallocation orders for one country.
-// Orders specify desired target counts; we clamp and validate.
-export function applyPopulationOrders(country) {
-  const o = country.orders;
-  if (o.farmers === null && o.scientists === null && o.soldiers === null) return;
-
-  const pop = country.population;
-
-  // Accept whatever the player set; clamp negatives
-  let soldiers  = Math.max(0, o.soldiers  ?? country.soldiers);
-  let scientists = Math.max(0, o.scientists ?? country.scientists);
-  let farmers   = Math.max(0, o.farmers   ?? country.farmers);
-
-  // If they over-allocate, scale down non-farmer roles proportionally
-  const nonFarmer = soldiers + scientists;
-  if (nonFarmer > pop) {
-    const scale = pop / nonFarmer;
-    soldiers   = Math.floor(soldiers   * scale);
-    scientists = Math.floor(scientists * scale);
-  }
-
-  country.soldiers   = soldiers;
-  country.scientists = scientists;
-  country.farmers    = pop - soldiers - scientists;
-}
