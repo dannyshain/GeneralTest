@@ -129,15 +129,16 @@ export function processUpkeep(country) {
     const soldierOwed    = calcMilitaryUpkeep(country);
     const scientistOwed  = calcScienceUpkeep(country);
 
+    let soldierShortfall = 0;
     if (soldierOwed > 0) {
-      const soldierShortfall = Math.min(shortfall, soldierOwed);
+      soldierShortfall = Math.min(shortfall, soldierOwed);
       soldierDesertions = Math.ceil(soldierShortfall / CONFIG.SOLDIER_UPKEEP);
       soldierDesertions = Math.min(soldierDesertions, country.soldiers);
       country.soldiers -= soldierDesertions;
       country.farmers  += soldierDesertions;
     }
 
-    const remainingShortfall = shortfall - soldierOwed;
+    const remainingShortfall = Math.max(0, shortfall - soldierShortfall);
     if (scientistOwed > 0 && remainingShortfall > 0) {
       scientistDesertions = Math.ceil(remainingShortfall / CONFIG.SCIENTIST_UPKEEP);
       scientistDesertions = Math.min(scientistDesertions, country.scientists);

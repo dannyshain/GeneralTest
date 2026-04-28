@@ -10,6 +10,10 @@ import {
   calcMilitaryUpkeep,
   calcScienceUpkeep,
   calcFoodUpkeep,
+  grainSellPrice,
+  trainSoldiers,
+  trainScientists,
+  generalRecruitCost,
 } from './economy.js';
 import { applyScienceOrders, processResearch } from './science.js';
 import { recruitGeneral, processGeneralAction, ageGenerals } from './generals.js';
@@ -45,13 +49,13 @@ export function processTurn(state) {
     if (!country.harvestedThisTurn) {
       const harvested = harvestGrain(country);
       if (!country.isHuman) {
-        // AI auto-sells enough to cover upkeep; holds some buffer
+        // AI sells enough grain to cover food + upkeep costs, keeping a small buffer
+        const price        = grainSellPrice(country);
         const foodNeeded   = calcFoodUpkeep(country);
         const upkeepNeeded = calcMilitaryUpkeep(country) + calcScienceUpkeep(country);
         const needToSell   = Math.max(0, foodNeeded + upkeepNeeded - country.money);
-        const grainToSell  = Math.min(country.grain, Math.ceil(needToSell / 0.05) + 200);
+        const grainToSell  = Math.min(country.grain, Math.ceil(needToSell / price) + 200);
         if (grainToSell > 0) {
-          const price = 0.05 * (1 + (country.science.grainValue - 1) * 0.25);
           country.money += grainToSell * price;
           country.grain -= grainToSell;
         }
@@ -75,6 +79,35 @@ export function processTurn(state) {
     }
     if (scientistDesertions > 0) {
       log.push(`${country.name}: ${scientistDesertions} scientists quit (upkeep not met).`);
+    }
+  }
+
+  // ── Step 5b: AI training and general recruitment ──────────────
+  // Human players train via immediate UI actions; AI does it here each turn.
+  for (const country of getActiveCountries(state)) {
+    if (country.isHuman && !country.isSurrendered) continue;
+    const o = country.orders;
+
+    // Train soldiers
+    if (o.soldiers != null && o.soldiers > country.soldiers) {
+      const want = o.soldiers - country.soldiers;
+      trainSoldiers(country, want);
+    }
+
+    // Train scientists
+    if (o.scientists != null && o.scientists > country.scientists) {
+      const want = o.scientists - country.scientists;
+      trainScientists(country, want);
+    }
+
+    // Recruit general
+    if (o.recruitGeneral && country.generals.length === 0) {
+      const { age, skill, speed } = o.recruitGeneral;
+      const cost = generalRecruitCost(age, skill, speed);
+      if (country.money >= cost) {
+        const gen = recruitGeneral(country, age, skill, speed);
+        if (gen) log.push(`${country.name} recruited General ${gen.name} (age ${gen.age}, skill ${gen.skill}, speed ${gen.speed}).`);
+      }
     }
   }
 
