@@ -56,6 +56,7 @@ export function processTurn(state) {
         if (grainToSell > 0) {
           country.money += grainToSell * price;
           country.grain -= grainToSell;
+          log.push(`${country.name} sold ${grainToSell} grain to cover upkeep.`);
         }
       }
     }

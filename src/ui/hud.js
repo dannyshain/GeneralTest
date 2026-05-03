@@ -48,7 +48,7 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   + `<div class="econ-row muted"><span>Harvest (if now)</span><span>${harvestAmt} grain</span></div>`
   + `<div class="econ-row muted"><span>Food consumed/turn</span><span>${foodUpkeep} grain</span></div>`
   + `<div class="econ-row muted"><span>Sell price</span><span>${sellPrice} /grain</span></div>`
-  + `<div class="econ-row muted"><span>Upkeep (soldiers+sci)</span><span>${totalUpkeep.toFixed(1)}/turn</span></div>`;
+  + `<div class="econ-row muted"><span>Upkeep (soldiers+sci)</span><span>${totalUpkeep.toFixed(1)} gold/turn</span></div>`;
   container.appendChild(econ);
 
   // ── Harvest button ─────────────────────────────────────────────
@@ -192,7 +192,7 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   }
 
   sciSection.appendChild(sciTable);
-  sciSection.appendChild(muted(`Upkeep: ${CONFIG.SCIENTIST_UPKEEP}/scientist/turn`));
+  sciSection.appendChild(muted(`Upkeep: ${CONFIG.SCIENTIST_UPKEEP} gold/scientist/turn`));
   container.appendChild(sciSection);
 
   // ── Generals ───────────────────────────────────────────────────
