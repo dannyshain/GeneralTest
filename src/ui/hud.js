@@ -64,7 +64,6 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
     });
     harvestBtn.className = 'action-btn harvest-btn';
     harvestSection.appendChild(harvestBtn);
-    harvestSection.appendChild(muted('After harvesting, farmers cannot be retrained this turn.'));
   }
 
   // Sell grain controls
@@ -113,12 +112,11 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   container.appendChild(sectionHeader('Train Soldiers'));
   const trainSolSection = div('hud-section');
   const maxSolAffordable = Math.floor(country.money / CONFIG.TRAIN_SOLDIER_COST);
-  const maxSolFromFarmers = country.harvestedThisTurn ? 0 : country.farmers;
+  const maxSolFromFarmers = country.farmers;
 
   trainSolSection.innerHTML =
     `<p class="muted">Cost: ${CONFIG.TRAIN_SOLDIER_COST} money each &nbsp;|&nbsp; `
-  + `Can train: ${Math.min(maxSolAffordable, maxSolFromFarmers)}`
-  + (country.harvestedThisTurn ? ' <em>(farmers already harvested)</em>' : '') + `</p>`;
+  + `Can train: ${Math.min(maxSolAffordable, maxSolFromFarmers)}</p>`;
 
   const trainSolRow = div('train-row');
   const trainSolInput = numInput(1, Math.max(1, Math.min(maxSolAffordable, maxSolFromFarmers)), 1);
@@ -139,12 +137,11 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   container.appendChild(sectionHeader('Train Scientists'));
   const trainSciSection = div('hud-section');
   const maxSciAffordable  = Math.floor(country.money / CONFIG.TRAIN_SCIENTIST_COST);
-  const maxSciFromFarmers = country.harvestedThisTurn ? 0 : country.farmers;
+  const maxSciFromFarmers = country.farmers;
 
   trainSciSection.innerHTML =
     `<p class="muted">Cost: ${CONFIG.TRAIN_SCIENTIST_COST} money each &nbsp;|&nbsp; `
-  + `Can train: ${Math.min(maxSciAffordable, maxSciFromFarmers)}`
-  + (country.harvestedThisTurn ? ' <em>(farmers already harvested)</em>' : '') + `</p>`;
+  + `Can train: ${Math.min(maxSciAffordable, maxSciFromFarmers)}</p>`;
 
   const trainSciRow = div('train-row');
   const trainSciInput = numInput(1, Math.max(1, Math.min(maxSciAffordable, maxSciFromFarmers)), 1);

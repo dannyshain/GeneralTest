@@ -9,7 +9,6 @@ import {
   processUpkeep,
   calcMilitaryUpkeep,
   calcScienceUpkeep,
-  calcFoodUpkeep,
   grainSellPrice,
   trainSoldiers,
   trainScientists,
@@ -51,9 +50,8 @@ export function processTurn(state) {
       if (!country.isHuman) {
         // AI sells enough grain to cover food + upkeep costs, keeping a small buffer
         const price        = grainSellPrice(country);
-        const foodNeeded   = calcFoodUpkeep(country);
         const upkeepNeeded = calcMilitaryUpkeep(country) + calcScienceUpkeep(country);
-        const needToSell   = Math.max(0, foodNeeded + upkeepNeeded - country.money);
+        const needToSell   = Math.max(0, upkeepNeeded - country.money);
         const grainToSell  = Math.min(country.grain, Math.ceil(needToSell / price) + 200);
         if (grainToSell > 0) {
           country.money += grainToSell * price;
