@@ -72,6 +72,17 @@ export function processTurn(state) {
 
   // ── Step 5: Military and science upkeep ───────────────────────
   for (const country of getActiveCountries(state)) {
+    // Auto-sell grain to cover upkeep shortfall before desertion
+    const totalOwed = calcMilitaryUpkeep(country) + calcScienceUpkeep(country);
+    const shortfall = totalOwed - country.money;
+    if (shortfall > 0 && country.grain > 0) {
+      const price = grainSellPrice(country);
+      const grainNeeded = Math.min(country.grain, Math.ceil(shortfall / price));
+      country.grain -= grainNeeded;
+      country.money += grainNeeded * price;
+      log.push(`${country.name} sold ${grainNeeded} grain to cover upkeep.`);
+    }
+
     const { soldierDesertions, scientistDesertions } = processUpkeep(country);
     if (soldierDesertions > 0) {
       log.push(`${country.name}: ${soldierDesertions} soldiers deserted (upkeep not met).`);

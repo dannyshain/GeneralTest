@@ -111,11 +111,12 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   // ── Train soldiers ─────────────────────────────────────────────
   container.appendChild(sectionHeader('Train Soldiers'));
   const trainSolSection = div('hud-section');
-  const maxSolAffordable = Math.floor(country.money / CONFIG.TRAIN_SOLDIER_COST);
+  const maxSolAffordable  = Math.floor(country.money / CONFIG.TRAIN_SOLDIER_COST);
   const maxSolFromFarmers = country.farmers;
+  const maxSolSustainable = calcMaxSustainable(country, CONFIG.TRAIN_SOLDIER_COST, CONFIG.SOLDIER_UPKEEP);
 
   trainSolSection.innerHTML =
-    `<p class="muted">Cost: ${CONFIG.TRAIN_SOLDIER_COST} money each &nbsp;|&nbsp; `
+    `<p class="muted">Cost: ${CONFIG.TRAIN_SOLDIER_COST} gold each &nbsp;|&nbsp; `
   + `Can train: ${Math.min(maxSolAffordable, maxSolFromFarmers)}</p>`;
 
   const trainSolRow = div('train-row');
@@ -128,8 +129,18 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   trainSolBtn.className = 'action-btn';
   if (maxSolAffordable === 0 || maxSolFromFarmers === 0) trainSolBtn.disabled = true;
 
+  const trainSolMaxBtn = btn(`Max sustainable (${maxSolSustainable})`, () => {
+    if (maxSolSustainable > 0) {
+      const trained = trainSoldiers(country, maxSolSustainable);
+      if (trained > 0) onImmediateAction();
+    }
+  });
+  trainSolMaxBtn.className = 'action-btn';
+  trainSolMaxBtn.disabled = maxSolSustainable === 0;
+
   trainSolRow.appendChild(trainSolInput);
   trainSolRow.appendChild(trainSolBtn);
+  trainSolRow.appendChild(trainSolMaxBtn);
   trainSolSection.appendChild(trainSolRow);
   container.appendChild(trainSolSection);
 
@@ -138,9 +149,10 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   const trainSciSection = div('hud-section');
   const maxSciAffordable  = Math.floor(country.money / CONFIG.TRAIN_SCIENTIST_COST);
   const maxSciFromFarmers = country.farmers;
+  const maxSciSustainable = calcMaxSustainable(country, CONFIG.TRAIN_SCIENTIST_COST, CONFIG.SCIENTIST_UPKEEP);
 
   trainSciSection.innerHTML =
-    `<p class="muted">Cost: ${CONFIG.TRAIN_SCIENTIST_COST} money each &nbsp;|&nbsp; `
+    `<p class="muted">Cost: ${CONFIG.TRAIN_SCIENTIST_COST} gold each &nbsp;|&nbsp; `
   + `Can train: ${Math.min(maxSciAffordable, maxSciFromFarmers)}</p>`;
 
   const trainSciRow = div('train-row');
@@ -153,8 +165,18 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   trainSciBtn.className = 'action-btn';
   if (maxSciAffordable === 0 || maxSciFromFarmers === 0) trainSciBtn.disabled = true;
 
+  const trainSciMaxBtn = btn(`Max sustainable (${maxSciSustainable})`, () => {
+    if (maxSciSustainable > 0) {
+      const trained = trainScientists(country, maxSciSustainable);
+      if (trained > 0) onImmediateAction();
+    }
+  });
+  trainSciMaxBtn.className = 'action-btn';
+  trainSciMaxBtn.disabled = maxSciSustainable === 0;
+
   trainSciRow.appendChild(trainSciInput);
   trainSciRow.appendChild(trainSciBtn);
+  trainSciRow.appendChild(trainSciMaxBtn);
   trainSciSection.appendChild(trainSciRow);
   container.appendChild(trainSciSection);
 
@@ -403,4 +425,15 @@ function elLabel(text) {
   const s = document.createElement('span');
   s.textContent = text;
   return s;
+}
+
+// Max N units to train such that remaining money still covers all upkeep next turn.
+// existingUpkeep = cost to maintain current soldiers + scientists before training.
+function calcMaxSustainable(country, trainCost, upkeepPerUnit) {
+  const existingUpkeep = country.soldiers * CONFIG.SOLDIER_UPKEEP + country.scientists * CONFIG.SCIENTIST_UPKEEP;
+  const available = country.money - existingUpkeep;
+  if (available <= 0) return 0;
+  // Each new unit costs trainCost up front + upkeepPerUnit ongoing
+  const n = Math.floor(available / (trainCost + upkeepPerUnit));
+  return Math.min(n, country.farmers);
 }
