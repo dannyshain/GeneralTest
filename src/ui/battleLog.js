@@ -98,7 +98,7 @@ export function renderEventLog(state, containerEl) {
   for (const line of state.eventLog) {
     const p = document.createElement('p');
     p.textContent = line;
-    if (line.includes('eliminated') || line.includes('starved')) p.className = 'event-important';
+    if (line.includes('eliminated') || line.includes('starved') || line.includes('deserted') || line.includes('quit')) p.className = 'event-important';
     containerEl.appendChild(p);
   }
 }
