@@ -91,9 +91,20 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   });
   sellAllBtn.className = 'action-btn';
 
+  const sustainableGrainToSell = Math.max(0, country.grain - foodUpkeep);
+  const sellSustainableBtn = btn(`Sell Surplus (${sustainableGrainToSell})`, () => {
+    if (sustainableGrainToSell > 0) {
+      sellGrain(country, sustainableGrainToSell);
+      onImmediateAction();
+    }
+  });
+  sellSustainableBtn.className = 'action-btn';
+  sellSustainableBtn.disabled = sustainableGrainToSell === 0;
+
   sellRow.appendChild(elLabel('Sell: '));
   sellRow.appendChild(sellInput);
   sellRow.appendChild(sellBtn);
+  sellRow.appendChild(sellSustainableBtn);
   sellRow.appendChild(sellAllBtn);
   harvestSection.appendChild(sellRow);
   container.appendChild(harvestSection);
