@@ -50,10 +50,12 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   + `<div class="econ-row muted"><span>Sell price</span><span>${sellPrice} /grain</span></div>`
   + `<div class="econ-row muted"><span>Upkeep (soldiers+sci)</span><span>${totalUpkeep.toFixed(1)} gold/turn</span></div>`;
 
+  const estimatedGrowth = Math.floor(country.population * CONFIG.BASE_GROWTH_RATE);
   const projectedGrain = country.harvestedThisTurn ? country.grain : country.grain + harvestAmt;
-  if (projectedGrain < foodUpkeep) {
+  const projectedFoodNeed = foodUpkeep + estimatedGrowth;
+  if (projectedGrain < projectedFoodNeed) {
     const warning = div('event-important');
-    warning.textContent = `⚠ Food shortage: ${projectedGrain} grain available, ${foodUpkeep} needed — starvation will occur!`;
+    warning.textContent = `⚠ Food shortage: ${projectedGrain} grain available, ~${projectedFoodNeed} needed after growth — starvation will occur!`;
     econ.appendChild(warning);
   }
   container.appendChild(econ);
@@ -98,7 +100,8 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   });
   sellAllBtn.className = 'action-btn';
 
-  const sustainableGrainToSell = Math.max(0, country.grain - foodUpkeep);
+  const estimatedGrowth = Math.floor(country.population * CONFIG.BASE_GROWTH_RATE);
+  const sustainableGrainToSell = Math.max(0, country.grain - (foodUpkeep + estimatedGrowth));
   const sellSustainableBtn = btn(`Sell Surplus (${sustainableGrainToSell})`, () => {
     if (sustainableGrainToSell > 0) {
       sellGrain(country, sustainableGrainToSell);
