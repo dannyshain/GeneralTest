@@ -49,6 +49,13 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   + `<div class="econ-row muted"><span>Food consumed/turn</span><span>${foodUpkeep} grain</span></div>`
   + `<div class="econ-row muted"><span>Sell price</span><span>${sellPrice} /grain</span></div>`
   + `<div class="econ-row muted"><span>Upkeep (soldiers+sci)</span><span>${totalUpkeep.toFixed(1)} gold/turn</span></div>`;
+
+  const projectedGrain = country.harvestedThisTurn ? country.grain : country.grain + harvestAmt;
+  if (projectedGrain < foodUpkeep) {
+    const warning = div('event-important');
+    warning.textContent = `⚠ Food shortage: ${projectedGrain} grain available, ${foodUpkeep} needed — starvation will occur!`;
+    econ.appendChild(warning);
+  }
   container.appendChild(econ);
 
   // ── Harvest button ─────────────────────────────────────────────
@@ -208,18 +215,34 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
 
     const tr      = document.createElement('tr');
     const inp     = numInput(0, country.scientists, sciAlloc[area] || 0);
-    inp.style.width = '55px';
-    inp.addEventListener('change', () => {
+    inp.style.width = '50px';
+    const notify = () => {
       sciAlloc[area] = Math.max(0, parseInt(inp.value) || 0);
       onOrdersChange({ scienceAllocation: { ...sciAlloc } });
-    });
+    };
+    inp.addEventListener('change', notify);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remove all';
+    removeBtn.className = 'sci-quick-btn';
+    removeBtn.addEventListener('click', () => { inp.value = '0'; notify(); });
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '✓';
+    addBtn.title = 'Assign all';
+    addBtn.className = 'sci-quick-btn';
+    addBtn.addEventListener('click', () => { inp.value = String(country.scientists); notify(); });
 
     tr.innerHTML =
       `<td>${SCIENCE_LABELS[area]}</td>`
     + `<td>${lv}</td>`
     + `<td>${lv >= CONFIG.SCIENCE_MAX_LEVEL ? 'max' : pct + '%'}</td>`;
     const td = document.createElement('td');
+    td.style.whiteSpace = 'nowrap';
+    td.appendChild(removeBtn);
     td.appendChild(inp);
+    td.appendChild(addBtn);
     tr.appendChild(td);
     sciTable.appendChild(tr);
   }
