@@ -33,22 +33,14 @@ export function processTurn(state) {
     }
   }
 
-  // ── Step 2: Population growth ──────────────────────────────────
-  for (const country of getActiveCountries(state)) {
-    const growth = applyPopulationGrowth(country);
-    if (growth > 0) {
-      log.push(`${country.name}: population grew by ${growth} (now ${country.population}).`);
-    }
-  }
-
-  // ── Step 3: Harvest grain ──────────────────────────────────────
+  // ── Step 2: Harvest grain ─────────────────────────────────────
   // Auto-harvest for any country that hasn't manually harvested yet this turn
   // (human player may have already harvested via the HUD button).
   for (const country of getActiveCountries(state)) {
     if (!country.harvestedThisTurn) {
       const harvested = harvestGrain(country);
       if (!country.isHuman) {
-        // AI sells enough grain to cover food + upkeep costs, keeping a small buffer
+        // AI sells enough grain to cover upkeep costs, keeping a small buffer
         const price        = grainSellPrice(country);
         const upkeepNeeded = calcMilitaryUpkeep(country) + calcScienceUpkeep(country);
         const needToSell   = Math.max(0, upkeepNeeded - country.money);
@@ -62,11 +54,20 @@ export function processTurn(state) {
     }
   }
 
-  // ── Step 4: Food upkeep + starvation ──────────────────────────
+  // ── Step 3: Food upkeep + starvation ──────────────────────────
+  // People eat before new births — no need to estimate post-growth population.
   for (const country of getActiveCountries(state)) {
     const { starved } = processFoodUpkeep(country);
     if (starved > 0) {
       log.push(`⚠ ${country.name}: ${starved} people starved due to food shortage!`);
+    }
+  }
+
+  // ── Step 4: Population growth ─────────────────────────────────
+  for (const country of getActiveCountries(state)) {
+    const growth = applyPopulationGrowth(country);
+    if (growth > 0) {
+      log.push(`${country.name}: population grew by ${growth} (now ${country.population}).`);
     }
   }
 
