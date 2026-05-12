@@ -3,18 +3,17 @@ import { CONFIG } from './config.js';
 import { angleTo } from './mapGen.js';
 
 // ── Land capture formula ───────────────────────────────────────────
-// Uses logarithmic scaling for diminishing returns.
-// 100 survivors at speed 50 → ~10 territory (≈10% of starting 100).
-// 500 survivors at speed 50 → ~20 territory (not 50).
-// Formula: floor(SCALE * ln(1 + survivors / DIVISOR) * speedMult)
+// Formula: floor(survivors / 3 * (1 + (speed / 100) * 2))
+// Speed 50, 30 survivors  → 20 territory  (~2% of 1000)
+// Speed 50, 60 survivors  → 40 territory  (~4% of 1000)
+// Speed 50, 500 survivors → 333 territory (~33% of 1000, near cap)
 // Capped at LAND_CAPTURE_MAX_FRACTION of the defender's current territory.
 
 export function calcLandCaptured(survivingSoldiers, speed, defenderTerritory) {
   if (survivingSoldiers <= 0) return 0;
-  const logTerm    = Math.log(1 + survivingSoldiers / CONFIG.LAND_CAPTURE_DIVISOR);
-  const speedMult  = 1 + CONFIG.LAND_SPEED_FACTOR * speed;
-  const raw        = Math.floor(CONFIG.LAND_CAPTURE_SCALE * logTerm * speedMult);
-  const cap        = Math.floor(defenderTerritory * CONFIG.LAND_CAPTURE_MAX_FRACTION);
+  const speedMult = 1 + (speed / 100) * 2;
+  const raw       = Math.floor((survivingSoldiers / 3) * speedMult);
+  const cap       = Math.floor(defenderTerritory * CONFIG.LAND_CAPTURE_MAX_FRACTION);
   return Math.min(raw, cap);
 }
 

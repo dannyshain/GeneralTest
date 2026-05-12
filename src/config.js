@@ -12,8 +12,8 @@ export const CONFIG = {
   // ── Starting Conditions ────────────────────────────────────────
   STARTING_POPULATION: 1000,
   STARTING_MONEY: 30,           // [TUNABLE] modest seed money
-  STARTING_TERRITORY: 100,
-  STARTING_BORDER_WEIGHT: 20,
+  STARTING_TERRITORY: 1000,
+  STARTING_BORDER_WEIGHT: 200,
   STARTING_GRAIN: 50,           // [TUNABLE] small grain buffer on turn 1
 
   // ── Population ────────────────────────────────────────────────
@@ -94,17 +94,14 @@ export const CONFIG = {
   MORALE_SHIFT_AMOUNT: 3,
 
   // ── Land Capture ──────────────────────────────────────────────
-  // Formula: floor(SCALE * ln(1 + survivors / DIVISOR) * speedMult)
-  // ~100 survivors at average speed → ~9–10 territory (≈10% of starting 100)
-  // Diminishing returns: 500 survivors → ~20 territory, not 50.
-  LAND_CAPTURE_SCALE: 12,             // [TUNABLE] overall capture magnitude
-  LAND_CAPTURE_DIVISOR: 100,          // [TUNABLE] controls diminishing-returns curve
-  LAND_SPEED_FACTOR: 0.003,           // [TUNABLE] speed bonus (+0.3% per speed point; speed 50 → +15%)
+  // Formula: floor(survivors / 3 * (1 + (speed / 100) * 2))
+  // Speed 50, 30 survivors → 20 territory (~2% of 1000)
+  // Speed 50, 500 survivors → 333 territory (~33%, near cap)
   LAND_CAPTURE_MAX_FRACTION: 0.35,    // [TUNABLE] max fraction of defender's territory per battle
 
   // Border weight system
   BORDER_TRANSFER_RATE: 0.4,
-  BORDER_THRESHOLD: 2.0,
+  BORDER_THRESHOLD: 20.0,
 
   // ── Hostility ─────────────────────────────────────────────────
   HOSTILITY_STARTING: 5,
