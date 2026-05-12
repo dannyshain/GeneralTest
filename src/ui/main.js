@@ -62,6 +62,7 @@ function render() {
     },
     handleImmediateAction,
     handleEndTurn,
+    pendingOrders,
   );
 
   renderBattleLogs(gameState, battleContainer);
@@ -117,6 +118,7 @@ function handleImmediateAction() {
     (changes) => { Object.assign(pendingOrders, changes); },
     handleImmediateAction,
     handleEndTurn,
+    pendingOrders,
   );
   renderMap(gameState, svgEl, handleCountryClick);
   renderCountryInfo(selectedCountryId ?? gameState.humanCountryId);

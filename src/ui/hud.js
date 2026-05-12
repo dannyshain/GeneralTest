@@ -18,7 +18,7 @@ import { densityCap } from '../population.js';
  * @param {Function} onImmediateAction - called with no args after any immediate state mutation (triggers full re-render)
  * @param {Function} onEndTurn         - called when player clicks End Turn
  */
-export function renderHUD(state, container, onOrdersChange, onImmediateAction, onEndTurn) {
+export function renderHUD(state, container, onOrdersChange, onImmediateAction, onEndTurn, pendingOrders = {}) {
   const humanId = state.humanCountryId;
   const country  = state.countries[humanId];
   if (!country) return;
@@ -202,7 +202,7 @@ export function renderHUD(state, container, onOrdersChange, onImmediateAction, o
   container.appendChild(sectionHeader(`Science  (${country.scientists} scientists)`));
   const sciSection = div('hud-section');
 
-  const sciAlloc = { ...country.scienceAllocation };
+  const sciAlloc = { ...country.scienceAllocation, ...(pendingOrders.scienceAllocation ?? {}) };
   const sciTable = document.createElement('table');
   sciTable.className = 'alloc-table';
   sciTable.innerHTML = '<tr><th>Area</th><th>Lv</th><th>Next</th><th>Assigned</th></tr>';
